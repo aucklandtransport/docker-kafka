@@ -1,18 +1,16 @@
 #!/bin/sh
 
 # Optional ENV variables:
-# * ADVERTISED_HOST: the external ip for the container, e.g. `docker-machine ip \`docker-machine active\``
-# * ADVERTISED_PORT: the external port for Kafka, e.g. 9092
+# * LISTENERS: list of name://host:port definitions which Kafka will listen on internally
+# * ADVERTISED_LISTENERS: list of name://host:port definitions which Kafka will tell the outside world it is listening on
+# * SSL_TRUSTSTORE_LOCATION
+# * SSL_TRUSTSTORE_PASSWORD
+# * SSL_KEYSTORE_LOCATION
+# * SSL_KEYSTORE_PASSWORD
 # * ZK_CHROOT: the zookeeper chroot that's used by Kafka (without / prefix), e.g. "kafka"
 # * LOG_RETENTION_HOURS: the minimum age of a log file in hours to be eligible for deletion (default is 168, for 1 week)
 # * LOG_RETENTION_BYTES: configure the size at which segments are pruned from the log, (default is 1073741824, for 1GB)
 # * NUM_PARTITIONS: configure the default number of log partitions per topic
-
-# Configure advertised host/port if we run in helios
-if [ ! -z "$HELIOS_PORT_kafka" ]; then
-    ADVERTISED_HOST=`echo $HELIOS_PORT_kafka | cut -d':' -f 1 | xargs -n 1 dig +short | tail -n 1`
-    ADVERTISED_PORT=`echo $HELIOS_PORT_kafka | cut -d':' -f 2`
-fi
 
 _set_config () {
     local CONF_NAME=$1
@@ -27,9 +25,15 @@ _set_config () {
     fi
 }
 
-# Set the external host and port
-_set_config advertised.host.name "$ADVERTISED_HOST"
-_set_config advertised.port "$ADVERTISED_PORT"
+# Set the internal and external host and port
+_set_config listeners "$LISTENERS"
+_set_config advertised.listeners "$ADVERTISED_LISTENERS"
+
+# Set SSL secret parameters
+_set_config ssl.truststore.location "$SSL_TRUSTSTORE_LOCATION"
+_set_config ssl.truststore.password "$SSL_TRUSTSTORE_PASSWORD"
+_set_config ssl.keystore.location "$SSL_KEYSTORE_LOCATION"
+_set_config ssl.keystore.password "$SSL_KEYSTORE_PASSWORD"
 
 # Set the zookeeper chroot
 if [ ! -z "$ZK_CHROOT" ]; then
