@@ -1,17 +1,22 @@
 #!/bin/sh
+set -e
 
 # Optional ENV variables:
 # * LISTENERS: list of name://host:port definitions which Kafka will listen on internally
 # * ADVERTISED_LISTENERS: list of name://host:port definitions which Kafka will tell the outside world it is listening on
+# * LOG_RETENTION_HOURS: the minimum age of a log file in hours to be eligible for deletion (default is 168, for 1 week)
+# * LOG_RETENTION_BYTES: configure the size at which segments are pruned from the log, (default is 1073741824, for 1GB)
+# * NUM_PARTITIONS: configure the default number of log partitions per topic
+# Variables required for SSL:
 # * SSL_TRUSTSTORE_LOCATION
 # * SSL_TRUSTSTORE_PASSWORD
 # * SSL_KEYSTORE_LOCATION
 # * SSL_KEYSTORE_PASSWORD
-# * ZK_CHROOT: the zookeeper chroot that's used by Kafka (without / prefix), e.g. "kafka"
-# * LOG_RETENTION_HOURS: the minimum age of a log file in hours to be eligible for deletion (default is 168, for 1 week)
-# * LOG_RETENTION_BYTES: configure the size at which segments are pruned from the log, (default is 1073741824, for 1GB)
-# * NUM_PARTITIONS: configure the default number of log partitions per topic
+# Variables required for clustering:
+# * SERVER_ID: the unique integer ID of this Kafka broker and Zookeeper instance in their respective clusters
+# * ZK_CONNECT: a comma-separated list of the host:clientport of all Zookeeper servers in the cluster
 
+# Update the config file from an environment variable, idempotently
 _set_config () {
     local CONF_NAME=$1
     local CONF_VALUE=$2
@@ -35,22 +40,11 @@ _set_config ssl.truststore.password "$SSL_TRUSTSTORE_PASSWORD"
 _set_config ssl.keystore.location "$SSL_KEYSTORE_LOCATION"
 _set_config ssl.keystore.password "$SSL_KEYSTORE_PASSWORD"
 
-# Set the zookeeper chroot
-if [ ! -z "$ZK_CHROOT" ]; then
-    # wait for zookeeper to start up
-    until /usr/share/zookeeper/bin/zkServer.sh status; do
-      sleep 0.1
-    done
+# Set clustering parameters
+_set_config broker.id "$SERVER_ID"
 
-    # create the chroot node
-    echo "create /$ZK_CHROOT \"\"" | /usr/share/zookeeper/bin/zkCli.sh || {
-        echo "can't create chroot in zookeeper, exit"
-        exit 1
-    }
-
-    # configure kafka
-    _set_config zookeeper.connect "localhost:2181"
-fi
+# Set the zookeeper connect string
+_set_config zookeeper.connect "$ZK_CONNECT"
 
 # Allow specification of log retention policies
 _set_config log.retention.hours "$LOG_RETENTION_HOURS"
